@@ -1,0 +1,36 @@
+# Workflow de CI/CD para el proyecto Angular.
+name: Angular CI/CD
+
+# on: indica CUÁNDO se ejecuta el workflow.
+#  - pull_request contra main -> se compila el código propuesto antes de fusionarlo.
+#  - push a main -> se compila el código que llega a la rama principal.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# jobs: los trabajos que forman el workflow. Cada job se ejecuta en una máquina virtual limpia.
+jobs:
+  # Job de integración continua: descarga, instala y compila.
+  build:
+    runs-on: ubuntu-latest
+    # permissions: permisos mínimos del token de GitHub. Para compilar solo hace falta leer el repositorio.
+    permissions:
+      contents: read
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Si hay un error de compilación este paso falla, el job falla y la PR queda bloqueada.
+      - name: Compilar Angular
+        run: npx ng build --base-href /cicd-angular/
