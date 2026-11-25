@@ -1,9 +1,11 @@
 # Workflow de CI/CD para el proyecto Angular.
+# CI: compila en cada PR contra main y en cada push a main.
+# CD: si el evento es un push a main y la compilación va bien, despliega en GitHub Pages.
 name: Angular CI/CD
 
 # on: indica CUÁNDO se ejecuta el workflow.
 #  - pull_request contra main -> se compila el código propuesto antes de fusionarlo.
-#  - push a main -> se compila el código que llega a la rama principal.
+#  - push a main (por ejemplo, al fusionar una PR) -> se compila y además se despliega.
 on:
   pull_request:
     branches: [main]
@@ -34,3 +36,30 @@ jobs:
       # Si hay un error de compilación este paso falla, el job falla y la PR queda bloqueada.
       - name: Compilar Angular
         run: npx ng build --base-href /cicd-angular/
+
+      # if: solo se sube el artefacto de Pages cuando el evento es un push (en una PR no se publica nada).
+      - name: Subir artefacto de Pages
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/ci-cd/browser
+
+  # Job de despliegue continuo: publica en GitHub Pages lo que ha compilado build.
+  deploy:
+    # needs: deploy depende de build. Solo empieza si build ha terminado correctamente.
+    needs: build
+    # if: solo se despliega en un push a la rama main.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # permissions: permisos mínimos para desplegar en Pages.
+    permissions:
+      pages: write      # publicar en GitHub Pages
+      id-token: write   # verificar que el despliegue viene de este workflow
+    # Entorno github-pages: GitHub muestra aquí la URL de la web publicada.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Desplegar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
